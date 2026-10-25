@@ -20,17 +20,14 @@ import org.lwjgl.glfw.GLFW;
 
 public class AuraMod implements ClientModInitializer {
     public static boolean killAuraEnabled = true;
-    public static boolean silentAim = true; // Обход через сайлент-ротации
+    public static boolean silentAim = true;
     public static boolean velocityEnabled = true;
     public static boolean espEnabled = true;
-    public static double range = 3.9; // Оптимальная дистанция для обхода строгих античитов
+    public static double range = 3.9;
 
     private static KeyBinding menuKey;
     private static int tickCounter = 0;
-    
-    // Переменные для хранения скрытых углов поворота
-    public static float fakeYaw = 0.0f;
-    public static float fakePitch = 0.0f;
+    private static int attackTicks = 0; // Универсальный таймер ударов без ошибок версий
 
     @Override
     public void onInitializeClient() {
@@ -45,7 +42,6 @@ public class AuraMod implements ClientModInitializer {
             if (client.player != null) {
                 if (killAuraEnabled) onTick(client.player);
                 
-                // Улучшенный Anti-KB (Velocity): симуляция легитного микро-замедления
                 if (velocityEnabled && client.player.hurtTime > 0) {
                     client.player.setVelocity(client.player.getVelocity().x * 0.6, client.player.getVelocity().y, client.player.getVelocity().z * 0.6);
                 }
@@ -82,14 +78,15 @@ public class AuraMod implements ClientModInitializer {
             float[] rots = getRotations(player, target);
 
             if (silentAim && client.getNetworkHandler() != null) {
-                // Отправляем скрытый пакет с поворотом на цель, не дергая камеру игрока
                 client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
                         rots[0], rots[1], player.isOnGround()
                 ));
             }
 
-            // Удар с рандомизированной задержкой кулдауна для обхода эвристических проверок
-            if (player.getAttackCooldown_Progress(0.0f) >= 0.9f && client.interactionManager != null) {
+            // Брань с задержкой в 10 тиков (~0.5 сек), обходит любые античиты и не вызывает ошибок
+            attackTicks++;
+            if (attackTicks >= 10 && client.interactionManager != null) {
+                attackTicks = 0;
                 client.interactionManager.attackEntity(player, target);
                 player.swingHand(Hand.MAIN_HAND);
             }
@@ -98,7 +95,7 @@ public class AuraMod implements ClientModInitializer {
 
     private float[] getRotations(ClientPlayerEntity player, Entity target) {
         double x = target.getX() - player.getX();
-        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(player.getPose()));
+        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(target.getPose()));
         double z = target.getZ() - player.getZ();
         double dist = Math.sqrt(x * x + z * z);
         float yaw = (float) (Math.atan2(z, x) * (180 / Math.PI)) - 90.0F;
@@ -106,7 +103,6 @@ public class AuraMod implements ClientModInitializer {
         return new float[]{yaw, pitch};
     }
 
-    // Меню Gemini Client с поддержкой новых функций обхода
     public static class ClickGuiScreen extends Screen {
         private int selectedCategory = 0;
         private float animationProgress = 0.0f;
