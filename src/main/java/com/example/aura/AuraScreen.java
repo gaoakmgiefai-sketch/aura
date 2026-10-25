@@ -18,7 +18,7 @@ public class AuraScreen extends Screen {
     protected void init() {
         super.init();
 
-        // Безопасное создание текста кнопки для 1.21.8 через Formatting
+        // Кнопка переключения киллауры с безопасным форматированием текста
         this.addDrawableChild(ButtonWidget.builder(
                 getButtonText(),
                 button -> {
@@ -41,6 +41,7 @@ public class AuraScreen extends Screen {
         this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
         
+        // Безопасная отрисовка заголовка по центру экрана для 1.21.8
         String titleText = this.title.getString();
         int textX = (this.width - this.textRenderer.getWidth(titleText)) / 2;
         context.drawText(this.textRenderer, titleText, textX, 30, 0xFFFFFF, true);
