@@ -1,14 +1,25 @@
 {
   "schemaVersion": 1,
-  "id": "aura",
-  "version": "${version}",
-  "name": "Aura",
+  "id": "auramod",
+  "version": "1.0.0",
+  "name": "Aura Mini Cheat",
+  "description": "Custom lightweight client mod",
+  "authors": [
+    "Матвій"
+  ],
+  "contact": {},
+  "license": "MIT",
   "environment": "client",
-  "entrypoints": { "client": ["com.example.aura.AuraMod"] },
+  "entrypoints": {
+    "client": [
+      "com.example.aura.AuraMod"
+    ]
+  },
+  "mixins": [],
   "depends": {
-    "fabricloader": ">=0.16.0",
-    "minecraft": "1.21.8",
-    "java": ">=21",
+    "fabricloader": ">=0.14.21",
+    "minecraft": "1.20.x",
+    "java": ">=17",
     "fabric-api": "*"
   }
 }
