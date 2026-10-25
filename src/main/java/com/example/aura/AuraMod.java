@@ -21,7 +21,7 @@ public class AuraMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Регистрация клавиши открытия меню (Right Shift)
+        // Открытие меню по нажатию Правого Shift (теперь без крашей)
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.aura.menu",
                 InputUtil.Type.KEYSYM,
@@ -32,12 +32,12 @@ public class AuraMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
 
-            // Открытие меню по нажатию клавиши
+            // Обработка открытия меню
             while (menuKey.wasPressed()) {
                 client.setScreen(new AuraScreen(null));
             }
 
-            // Логика киллауры
+            // Работа киллауры, если она включена
             if (auraEnabled) {
                 runLegitAura(client);
             }
@@ -51,6 +51,7 @@ public class AuraMod implements ClientModInitializer {
         for (Entity entity : client.world.getEntities()) {
             if (entity instanceof LivingEntity && entity != client.player) {
                 if (entity instanceof PlayerEntity && ((PlayerEntity) entity).isCreative()) continue;
+                if (entity.isSpectator()) continue;
 
                 double distance = client.player.distanceTo(entity);
                 if (distance <= closestDistance) {
@@ -62,6 +63,7 @@ public class AuraMod implements ClientModInitializer {
             }
         }
 
+        // Нанесение удара с учетом кулдауна оружия
         if (target != null && client.interactionManager != null) {
             if (client.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 client.interactionManager.attackEntity(client.player, target);
