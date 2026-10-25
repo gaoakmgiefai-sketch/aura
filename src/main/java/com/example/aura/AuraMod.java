@@ -8,19 +8,20 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Hand;
 import org.lwjgl.glfw.GLFW;
 
 public class AuraMod implements ClientModInitializer {
     public static boolean auraEnabled = false;
     private static KeyBinding menuKey;
     
-    // Настройки киллауры для максимального обхода
-    public static double reachDistance = 3.8; // Дистанция удара
-    public static int fovCheck = 90;          // Угол обзора (градусы)
+    // Настройки киллауры
+    public static double reachDistance = 3.8; 
+    public static int fovCheck = 90;          
 
     @Override
     public void onInitializeClient() {
-        // Регистрация клавиши открытия меню (Right Shift) — исправлено KEYSYM
+        // Регистрация клавиши открытия меню (Right Shift)
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.aura.menu",
                 InputUtil.Type.KEYSYM,
@@ -36,7 +37,7 @@ public class AuraMod implements ClientModInitializer {
                 client.setScreen(new AuraScreen(null));
             }
 
-            // Логика киллауры, если она включена в меню
+            // Логика киллауры
             if (auraEnabled) {
                 runLegitAura(client);
             }
@@ -47,14 +48,12 @@ public class AuraMod implements ClientModInitializer {
         Entity target = null;
         double closestDistance = reachDistance;
 
-        // Поиск целей в радиусе (проверяем только живых сущностей)
         for (Entity entity : client.world.getEntities()) {
             if (entity instanceof LivingEntity && entity != client.player) {
                 if (entity instanceof PlayerEntity && ((PlayerEntity) entity).isCreative()) continue;
 
                 double distance = client.player.distanceTo(entity);
                 if (distance <= closestDistance) {
-                    // Проверка FOV (чтобы не бить врагов сзади)
                     if (isInFov(client.player, entity, fovCheck)) {
                         closestDistance = distance;
                         target = entity;
@@ -63,16 +62,14 @@ public class AuraMod implements ClientModInitializer {
             }
         }
 
-        // Если цель найдена — наносим удар с учётом кулдауна
         if (target != null && client.interactionManager != null) {
             if (client.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 client.interactionManager.attackEntity(client.player, target);
-                client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
+                client.player.swingHand(Hand.MAIN_HAND);
             }
         }
     }
 
-    // Метод проверки угла обзора (FOV)
     private boolean isInFov(PlayerEntity player, Entity target, float angle) {
         double diffX = target.getX() - player.getX();
         double diffZ = target.getZ() - player.getZ();
