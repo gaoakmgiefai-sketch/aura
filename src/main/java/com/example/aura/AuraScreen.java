@@ -17,7 +17,7 @@ public class AuraScreen extends Screen {
     protected void init() {
         super.init();
 
-        // Кнопка включения/выключения киллауры для 1.21+
+        // Кнопка включения/выключения киллауры
         this.addDrawableChild(ButtonWidget.builder(
                 Text.literal("Killaura: " + (AuraMod.auraEnabled ? "§aВКЛ" : "§cВЫКЛ")),
                 button -> {
@@ -29,11 +29,13 @@ public class AuraScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Корректный вызов фона для версий 1.21+
-        this.renderBackground(context, mouseX, mouseY, delta);
+        // В Minecraft 1.21+ метод renderBackground принимает только context
+        this.renderBackground(context);
         
         super.render(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 30, 0xFFFFFF);
+        
+        // Исправленный метод отрисовки текста по центру для версии 1.21.8
+        context.drawCenteredText(this.textRenderer, this.title, this.width / 2, 30, 0xFFFFFF);
     }
 
     @Override
