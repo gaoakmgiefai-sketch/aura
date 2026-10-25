@@ -29,13 +29,13 @@ public class AuraScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // В Minecraft 1.21+ метод renderBackground принимает только context
-        this.renderBackground(context);
-        
+        this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
         
-        // Исправленный метод отрисовки текста по центру для версии 1.21.8
-        context.drawCenteredText(this.textRenderer, this.title, this.width / 2, 30, 0xFFFFFF);
+        // Безопасная отрисовка текста по центру для 1.21+
+        String titleText = this.title.getString();
+        int textX = (this.width - this.textRenderer.getWidth(titleText)) / 2;
+        context.drawText(this.textRenderer, titleText, textX, 30, 0xFFFFFF, true);
     }
 
     @Override
