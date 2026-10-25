@@ -61,7 +61,6 @@ public class AuraMod implements ClientModInitializer {
         LivingEntity target = null;
         double minDistance = range;
 
-        // Абсолютно безопасный обход игроков для исключения ошибок версий
         for (PlayerEntity entity : client.world.getPlayers()) {
             if (entity != player && entity.isAlive()) {
                 double distance = player.distanceTo(entity);
@@ -94,7 +93,7 @@ public class AuraMod implements ClientModInitializer {
 
     private float[] getRotations(ClientPlayerEntity player, LivingEntity target) {
         double x = target.getX() - player.getX();
-        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(target.getPose()));
+        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(player.getPose()));
         double z = target.getZ() - player.getZ();
         double dist = Math.sqrt(x * x + z * z);
         float yaw = (float) (Math.atan2(z, x) * (180 / Math.PI)) - 90.0F;
@@ -117,7 +116,6 @@ public class AuraMod implements ClientModInitializer {
                 if (animationProgress > 1.0f) animationProgress = 1.0f;
             }
 
-            // Затемнение экрана без вызова устаревших или конфликтных методов
             context.fill(0, 0, this.width, this.height, 0x66000000);
 
             int baseWidth = 340;
