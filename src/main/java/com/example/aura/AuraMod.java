@@ -20,10 +20,10 @@ public class AuraMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Регистрация клавиши открытия меню (Right Shift)
+        // Регистрация клавиши открытия меню (Right Shift) — исправлено KEYSYM
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.aura.menu",
-                InputUtil.Type.KEY_SYM,
+                InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
                 "category.aura.mod"
         ));
