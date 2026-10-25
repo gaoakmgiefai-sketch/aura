@@ -4,6 +4,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 public class AuraScreen extends Screen {
     private final Screen parent;
@@ -17,14 +18,22 @@ public class AuraScreen extends Screen {
     protected void init() {
         super.init();
 
-        // Кнопка включения/выключения киллауры
+        // Безопасное создание текста кнопки для 1.21.8 через Formatting
         this.addDrawableChild(ButtonWidget.builder(
-                Text.literal("Killaura: " + (AuraMod.auraEnabled ? "§aВКЛ" : "§cВЫКЛ")),
+                getButtonText(),
                 button -> {
                     AuraMod.auraEnabled = !AuraMod.auraEnabled;
-                    button.setMessage(Text.literal("Killaura: " + (AuraMod.auraEnabled ? "§aВКЛ" : "§cВЫКЛ")));
+                    button.setMessage(getButtonText());
                 }
         ).dimensions(this.width / 2 - 100, this.height / 2 - 20, 200, 20).build());
+    }
+
+    private Text getButtonText() {
+        Text status = AuraMod.auraEnabled 
+            ? Text.literal("ВКЛ").formatted(Formatting.GREEN) 
+            : Text.literal("ВЫКЛ").formatted(Formatting.RED);
+            
+        return Text.literal("Killaura: ").append(status);
     }
 
     @Override
@@ -32,7 +41,6 @@ public class AuraScreen extends Screen {
         this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
         
-        // Безопасная отрисовка текста по центру для 1.21+
         String titleText = this.title.getString();
         int textX = (this.width - this.textRenderer.getWidth(titleText)) / 2;
         context.drawText(this.textRenderer, titleText, textX, 30, 0xFFFFFF, true);
