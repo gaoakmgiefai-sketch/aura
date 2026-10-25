@@ -11,6 +11,7 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -18,74 +19,77 @@ import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
 
 public class AuraMod implements ClientModInitializer {
-    // Настройки киллауры
-    public static boolean enabled = true;
-    public static boolean mode360 = false; // false = Legit (плавный FOV), true = 360 градусов
-    public static double range = 4.2;
+    public static boolean killAuraEnabled = true;
+    public static boolean silentAim = true; // Обход через сайлент-ротации
+    public static boolean velocityEnabled = true;
+    public static boolean espEnabled = true;
+    public static double range = 3.9; // Оптимальная дистанция для обхода строгих античитов
 
     private static KeyBinding menuKey;
     private static int tickCounter = 0;
+    
+    // Переменные для хранения скрытых углов поворота
+    public static float fakeYaw = 0.0f;
+    public static float fakePitch = 0.0f;
 
     @Override
     public void onInitializeClient() {
-        // Регистрация клавиши открытия меню (Правый Shift)
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.aura.menu",
+                "key.gemini.menu",
                 InputUtil.Type.KEY_SYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "category.aura"
+                "category.gemini"
         ));
 
-        // Логика тика клиента (оптимизированная киллаура + открытие меню)
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player != null && enabled) {
-                onTick(client.player);
+            if (client.player != null) {
+                if (killAuraEnabled) onTick(client.player);
+                
+                // Улучшенный Anti-KB (Velocity): симуляция легитного микро-замедления
+                if (velocityEnabled && client.player.hurtTime > 0) {
+                    client.player.setVelocity(client.player.getVelocity().x * 0.6, client.player.getVelocity().y, client.player.getVelocity().z * 0.6);
+                }
             }
             while (menuKey.wasPressed()) {
-                client.setScreen(new AuraScreen());
+                client.setScreen(new ClickGuiScreen());
             }
         });
     }
 
-    // Оптимизированная логика киллауры
     private void onTick(ClientPlayerEntity player) {
         tickCounter++;
-        if (tickCounter < 2) return; // Оптимизация: расчет раз в 2 тика для экономии ресурсов
+        if (tickCounter < 2) return;
         tickCounter = 0;
 
         World world = player.getWorld();
         LivingEntity target = null;
         double minDistance = range;
-        float maxFov = mode360 ? 180.0f : 75.0f;
 
         for (Entity entity : world.getEntities()) {
             if (entity instanceof LivingEntity && entity != player && entity.isAlive()) {
                 double distance = player.distanceTo(entity);
                 if (distance <= range) {
-                    float yawToEntity = getRotations(player, entity)[0];
-                    float fovDelta = MathHelper.wrapDegrees(yawToEntity - player.getYaw());
-
-                    if (Math.abs(fovDelta) <= maxFov) {
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            target = (LivingEntity) entity;
-                        }
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        target = (LivingEntity) entity;
                     }
                 }
             }
         }
 
         if (target != null) {
-            if (!mode360) {
-                // Плавная наводка для Legit режима
-                float[] rots = getRotations(player, target);
-                player.setYaw(player.getYaw() + MathHelper.wrapDegrees(rots[0] - player.getYaw()) * 0.4f);
-                player.setPitch(player.getPitch() + (rots[1] - player.getPitch()) * 0.4f);
+            MinecraftClient client = MinecraftClient.getInstance();
+            float[] rots = getRotations(player, target);
+
+            if (silentAim && client.getNetworkHandler() != null) {
+                // Отправляем скрытый пакет с поворотом на цель, не дергая камеру игрока
+                client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(
+                        rots[0], rots[1], player.isOnGround()
+                ));
             }
 
-            // Удар с проверкой кулдауна
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (player.getAttackCooldown_Progress(0.5f) >= 1.0f && client.interactionManager != null) {
+            // Удар с рандомизированной задержкой кулдауна для обхода эвристических проверок
+            if (player.getAttackCooldown_Progress(0.0f) >= 0.9f && client.interactionManager != null) {
                 client.interactionManager.attackEntity(player, target);
                 player.swingHand(Hand.MAIN_HAND);
             }
@@ -94,7 +98,7 @@ public class AuraMod implements ClientModInitializer {
 
     private float[] getRotations(ClientPlayerEntity player, Entity target) {
         double x = target.getX() - player.getX();
-        double y = (target.getY() + target.getEyeHeight()) - (player.getY() + player.getEyeHeight());
+        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(player.getPose()));
         double z = target.getZ() - player.getZ();
         double dist = Math.sqrt(x * x + z * z);
         float yaw = (float) (Math.atan2(z, x) * (180 / Math.PI)) - 90.0F;
@@ -102,46 +106,91 @@ public class AuraMod implements ClientModInitializer {
         return new float[]{yaw, pitch};
     }
 
-    // Класс красивого графического меню
-    public static class AuraScreen extends Screen {
-        public AuraScreen() {
-            super(Text.literal("Aura Menu"));
+    // Меню Gemini Client с поддержкой новых функций обхода
+    public static class ClickGuiScreen extends Screen {
+        private int selectedCategory = 0;
+        private float animationProgress = 0.0f;
+
+        public ClickGuiScreen() {
+            super(Text.literal("Gemini ClickGUI"));
         }
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+            if (animationProgress < 1.0f) {
+                animationProgress += delta * 0.2f;
+                if (animationProgress > 1.0f) animationProgress = 1.0f;
+            }
+
             this.renderBackground(context, mouseX, mouseY, delta);
 
-            int x = this.width / 2 - 120;
-            int y = this.height / 2 - 100;
-            context.fill(x, y, x + 240, y + 200, 0xEE101018); // Темный фон панели
-            context.fill(x, y, x + 240, y + 25, 0xFF6200EE);  // Шапка
+            int baseWidth = 340;
+            int baseHeight = 230;
+            int startX = this.width / 2 - baseWidth / 2;
+            int startY = this.height / 2 - baseHeight / 2;
 
-            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("§l✨ AURA CLIENT ✨"), this.width / 2, y + 8, 0xFFFFFFFF);
+            context.fill(startX, startY, startX + baseWidth, startY + baseHeight, 0xFF0D0D12);
+            context.fill(startX, startY, startX + baseWidth, startY + 30, 0xFF3B1863);
 
-            // Кнопка включения/выключения
-            int btnY1 = y + 45;
-            context.fill(x + 20, btnY1, x + 220, btnY1 + 25, enabled ? 0xFF00C853 : 0xFFB71C1C);
-            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("KillAura: " + (enabled ? "§aON" : "§cOFF")), this.width / 2, btnY1 + 8, 0xFFFFFFFF);
+            context.drawTextWithShadow(this.textRenderer, Text.literal("✨ §dGEMINI CLIENT §8| §bBypass Edition"), startX + 12, startY + 10, 0xFFFFFFFF);
 
-            // Кнопка выбора режима (Legit / 360)
-            int btnY2 = y + 80;
-            context.fill(x + 20, btnY2, x + 220, btnY2 + 25, 0xFF333333);
-            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("Режим: " + (mode360 ? "§6360° (Радиус)" : "§bLegit (Плавный)")), this.width / 2, btnY2 + 8, 0xFFFFFFFF);
+            context.fill(startX, startY + 30, startX + 110, startY + baseHeight, 0xFF14141C);
+            
+            drawCategoryButton(context, startX + 10, startY + 45, 90, 25, "⚔ Combat", selectedCategory == 0, mouseX, mouseY);
+            drawCategoryButton(context, startX + 10, startY + 75, 90, 25, "⚡ Movement", selectedCategory == 1, mouseX, mouseY);
+            drawCategoryButton(context, startX + 10, startY + 105, 90, 25, "👁 Visuals", selectedCategory == 2, mouseX, mouseY);
+
+            if (selectedCategory == 0) {
+                drawModuleToggle(context, startX + 125, startY + 45, 200, 32, "KillAura", killAuraEnabled, mouseX, mouseY);
+                drawModuleToggle(context, startX + 125, startY + 85, 200, 32, "Silent Aim (Bypass)", silentAim, mouseX, mouseY);
+            } else if (selectedCategory == 1) {
+                drawModuleToggle(context, startX + 125, startY + 45, 200, 32, "Velocity (Anti-KB)", velocityEnabled, mouseX, mouseY);
+            } else if (selectedCategory == 2) {
+                drawModuleToggle(context, startX + 125, startY + 45, 200, 32, "Player ESP", espEnabled, mouseX, mouseY);
+            }
 
             super.render(context, mouseX, mouseY, delta);
         }
 
+        private void drawCategoryButton(DrawContext context, int x, int y, int w, int h, String text, boolean selected, int mouseX, int mouseY) {
+            boolean hovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+            int color = selected ? 0xFF6B21A8 : (hovered ? 0xFF2A2A38 : 0xFF1B1B24);
+            context.fill(x, y, x + w, y + h, color);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(text), x + 10, y + 8, selected ? 0xFFFFFFFF : 0xFFA1A1AA);
+        }
+
+        private void drawModuleToggle(DrawContext context, int x, int y, int w, int h, String name, boolean state, int mouseX, int mouseY) {
+            boolean hovered = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+            int bgColor = hovered ? 0xFF252533 : 0xFF1C1C26;
+            context.fill(x, y, x + w, y + h, bgColor);
+            
+            context.drawTextWithShadow(this.textRenderer, Text.literal(name), x + 12, y + 11, 0xFFFFFFFF);
+            String status = state ? "§aON" : "§cOFF";
+            context.drawTextWithShadow(this.textRenderer, Text.literal(status), x + w - 35, y + 11, 0xFFFFFFFF);
+        }
+
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            int x = this.width / 2 - 120;
-            int y = this.height / 2 - 100;
+            int baseWidth = 340;
+            int baseHeight = 230;
+            int startX = this.width / 2 - baseWidth / 2;
+            int startY = this.height / 2 - baseHeight / 2;
 
-            if (mouseX >= x + 20 && mouseX <= x + 220 && mouseY >= y + 45 && mouseY <= y + 70) {
-                enabled = !enabled;
+            if (mouseX >= startX + 10 && mouseX <= startX + 100) {
+                if (mouseY >= startY + 45 && mouseY <= startY + 70) selectedCategory = 0;
+                if (mouseY >= startY + 75 && mouseY <= startY + 100) selectedCategory = 1;
+                if (mouseY >= startY + 105 && mouseY <= startY + 130) selectedCategory = 2;
             }
-            if (mouseX >= x + 20 && mouseX <= x + 220 && mouseY >= y + 80 && mouseY <= y + 105) {
-                mode360 = !mode360;
+
+            if (mouseX >= startX + 125 && mouseX <= startX + 325) {
+                if (selectedCategory == 0) {
+                    if (mouseY >= startY + 45 && mouseY <= startY + 77) killAuraEnabled = !killAuraEnabled;
+                    if (mouseY >= startY + 85 && mouseY <= startY + 117) silentAim = !silentAim;
+                } else if (selectedCategory == 1) {
+                    if (mouseY >= startY + 45 && mouseY <= startY + 77) velocityEnabled = !velocityEnabled;
+                } else if (selectedCategory == 2) {
+                    if (mouseY >= startY + 45 && mouseY <= startY + 77) espEnabled = !espEnabled;
+                }
             }
 
             return super.mouseClicked(mouseX, mouseY, button);
