@@ -14,6 +14,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
@@ -27,7 +28,7 @@ public class AuraMod implements ClientModInitializer {
 
     private static KeyBinding menuKey;
     private static int tickCounter = 0;
-    private static int attackTicks = 0; // Универсальный таймер ударов без ошибок версий
+    private static int attackTicks = 0;
 
     @Override
     public void onInitializeClient() {
@@ -61,8 +62,10 @@ public class AuraMod implements ClientModInitializer {
         LivingEntity target = null;
         double minDistance = range;
 
-        for (Entity entity : world.getEntities()) {
-            if (entity instanceof LivingEntity && entity != player && entity.isAlive()) {
+        // Безопасный поиск сущностей вокруг игрока через хитбокс
+        Box searchBox = player.getBoundingBox().expand(range);
+        for (Entity entity : world.getOtherEntities(player, searchBox)) {
+            if (entity instanceof LivingEntity && entity.isAlive()) {
                 double distance = player.distanceTo(entity);
                 if (distance <= range) {
                     if (distance < minDistance) {
@@ -83,7 +86,6 @@ public class AuraMod implements ClientModInitializer {
                 ));
             }
 
-            // Брань с задержкой в 10 тиков (~0.5 сек), обходит любые античиты и не вызывает ошибок
             attackTicks++;
             if (attackTicks >= 10 && client.interactionManager != null) {
                 attackTicks = 0;
@@ -95,7 +97,7 @@ public class AuraMod implements ClientModInitializer {
 
     private float[] getRotations(ClientPlayerEntity player, Entity target) {
         double x = target.getX() - player.getX();
-        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(target.getPose()));
+        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(player.getPose()));
         double z = target.getZ() - player.getZ();
         double dist = Math.sqrt(x * x + z * z);
         float yaw = (float) (Math.atan2(z, x) * (180 / Math.PI)) - 90.0F;
