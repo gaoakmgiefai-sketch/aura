@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "aura",
+  "version": "${version}",
+  "name": "Aura",
+  "environment": "client",
+  "entrypoints": { "client": ["com.example.aura.AuraMod"] },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.21.8",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
