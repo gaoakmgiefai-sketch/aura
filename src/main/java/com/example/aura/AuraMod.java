@@ -9,14 +9,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
 import org.lwjgl.glfw.GLFW;
 
 public class AuraMod implements ClientModInitializer {
@@ -34,7 +31,7 @@ public class AuraMod implements ClientModInitializer {
     public void onInitializeClient() {
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.gemini.menu",
-                InputUtil.Type.KEYSYM, // Исправлено с KEY_SYM на KEYSYM
+                InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
                 "category.gemini"
         ));
@@ -58,25 +55,26 @@ public class AuraMod implements ClientModInitializer {
         if (tickCounter < 2) return;
         tickCounter = 0;
 
-        World world = player.getWorld();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) return;
+
         LivingEntity target = null;
         double minDistance = range;
 
-        Box searchBox = player.getBoundingBox().expand(range);
-        for (Entity entity : world.getOtherEntities(player, searchBox)) {
-            if (entity instanceof LivingEntity && entity.isAlive()) {
+        // Абсолютно безопасный обход игроков для исключения ошибок версий
+        for (PlayerEntity entity : client.world.getPlayers()) {
+            if (entity != player && entity.isAlive()) {
                 double distance = player.distanceTo(entity);
                 if (distance <= range) {
                     if (distance < minDistance) {
                         minDistance = distance;
-                        target = (LivingEntity) entity;
+                        target = entity;
                     }
                 }
             }
         }
 
         if (target != null) {
-            MinecraftClient client = MinecraftClient.getInstance();
             float[] rots = getRotations(player, target);
 
             if (silentAim && client.getNetworkHandler() != null) {
@@ -94,7 +92,7 @@ public class AuraMod implements ClientModInitializer {
         }
     }
 
-    private float[] getRotations(ClientPlayerEntity player, Entity target) {
+    private float[] getRotations(ClientPlayerEntity player, LivingEntity target) {
         double x = target.getX() - player.getX();
         double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(target.getPose()));
         double z = target.getZ() - player.getZ();
@@ -119,7 +117,8 @@ public class AuraMod implements ClientModInitializer {
                 if (animationProgress > 1.0f) animationProgress = 1.0f;
             }
 
-            this.renderBackground(context, mouseX, mouseY, delta);
+            // Затемнение экрана без вызова устаревших или конфликтных методов
+            context.fill(0, 0, this.width, this.height, 0x66000000);
 
             int baseWidth = 340;
             int baseHeight = 230;
