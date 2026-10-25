@@ -34,7 +34,7 @@ public class AuraMod implements ClientModInitializer {
     public void onInitializeClient() {
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.gemini.menu",
-                InputUtil.Type.KEY_SYM,
+                InputUtil.Type.KEYSYM, // Исправлено с KEY_SYM на KEYSYM
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
                 "category.gemini"
         ));
@@ -62,7 +62,6 @@ public class AuraMod implements ClientModInitializer {
         LivingEntity target = null;
         double minDistance = range;
 
-        // Безопасный поиск сущностей вокруг игрока через хитбокс
         Box searchBox = player.getBoundingBox().expand(range);
         for (Entity entity : world.getOtherEntities(player, searchBox)) {
             if (entity instanceof LivingEntity && entity.isAlive()) {
@@ -97,7 +96,7 @@ public class AuraMod implements ClientModInitializer {
 
     private float[] getRotations(ClientPlayerEntity player, Entity target) {
         double x = target.getX() - player.getX();
-        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(player.getPose()));
+        double y = (target.getY() + target.getEyeHeight(target.getPose())) - (player.getY() + player.getEyeHeight(target.getPose()));
         double z = target.getZ() - player.getZ();
         double dist = Math.sqrt(x * x + z * z);
         float yaw = (float) (Math.atan2(z, x) * (180 / Math.PI)) - 90.0F;
