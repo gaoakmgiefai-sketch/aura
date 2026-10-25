@@ -15,8 +15,8 @@ public class AuraMod implements ClientModInitializer {
     private static KeyBinding menuKey;
     
     // Настройки киллауры для максимального обхода
-    public static double reachDistance = 3.8; // Дистанция удара (лучше держать в пределах легита)
-    public static int fovCheck = 90;          // Угол обзора (бьем только то, что перед глазами)
+    public static double reachDistance = 3.8; // Дистанция удара
+    public static int fovCheck = 90;          // Угол обзора (градусы)
 
     @Override
     public void onInitializeClient() {
@@ -47,15 +47,14 @@ public class AuraMod implements ClientModInitializer {
         Entity target = null;
         double closestDistance = reachDistance;
 
-        // Оптимизированный поиск целей в радиусе (проверяем только живых сущностей)
+        // Поиск целей в радиусе (проверяем только живых сущностей)
         for (Entity entity : client.world.getEntities()) {
             if (entity instanceof LivingEntity && entity != client.player) {
-                // Не бьем друзей / игроков в креативе (по желанию)
                 if (entity instanceof PlayerEntity && ((PlayerEntity) entity).isCreative()) continue;
 
                 double distance = client.player.distanceTo(entity);
                 if (distance <= closestDistance) {
-                    // Проверка FOV (чтобы не бить врагов сзади — палит античит)
+                    // Проверка FOV (чтобы не бить врагов сзади)
                     if (isInFov(client.player, entity, fovCheck)) {
                         closestDistance = distance;
                         target = entity;
@@ -64,17 +63,16 @@ public class AuraMod implements ClientModInitializer {
             }
         }
 
-        // Если цель найдена — наносим удар легитимно
+        // Если цель найдена — наносим удар с учётом кулдауна
         if (target != null && client.interactionManager != null) {
-            // Проверка кулдауна атаки (важно для обхода NoCheatPlus / Vulcan / Grim)
-            if (client.player.getAttackCooldown_progress(0.5f) >= 1.0f) {
+            if (client.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 client.interactionManager.attackEntity(client.player, target);
                 client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
             }
         }
     }
 
-    // Метод проверки угла обзора (FOV) для беспалевности
+    // Метод проверки угла обзора (FOV)
     private boolean isInFov(PlayerEntity player, Entity target, float angle) {
         double diffX = target.getX() - player.getX();
         double diffZ = target.getZ() - player.getZ();
