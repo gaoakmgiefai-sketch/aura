@@ -11,16 +11,12 @@ base {
 }
 
 repositories {
-    // Репозитории при необходимости
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    // Если используется Fabric API, раскомментируй строку ниже:
-    // modImplementation "net.fabricmc:fabric-api:${project.fabric_version}"
 }
 
 processResources {
