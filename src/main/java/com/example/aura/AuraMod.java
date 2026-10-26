@@ -21,7 +21,7 @@ public class AuraMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Регистрация клавиши открытия меню (используем Right Shift во избежание конфликтов со стандартным приседанием)
+        // Регистрация клавиши открытия меню на Правый Shift (избавляет от конфликтов с приседанием)
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.aura.menu",
                 InputUtil.Type.KEYSYM,
@@ -32,17 +32,16 @@ public class AuraMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client == null || client.player == null || client.world == null) return;
 
-            // Безопасная обработка открытия меню
+            // Безопасное открытие меню
             try {
                 while (menuKey.wasPressed()) {
                     client.setScreen(new AuraScreen(null));
                 }
             } catch (Exception e) {
-                // Предотвращаем краш игры при сбое GUI
                 e.printStackTrace();
             }
 
-            // Работа киллауры, если она включена
+            // Работа киллауры
             if (auraEnabled) {
                 runLegitAura(client);
             }
@@ -55,7 +54,6 @@ public class AuraMod implements ClientModInitializer {
         Entity target = null;
         double closestDistance = reachDistance;
 
-        // Безопасный обход сущностей с проверкой на удаление из мира
         try {
             for (Entity entity : client.world.getEntities()) {
                 if (entity == null || entity.isRemoved()) continue;
@@ -75,11 +73,9 @@ public class AuraMod implements ClientModInitializer {
                 }
             }
         } catch (Exception e) {
-            // Защита от ConcurrentModificationException при тиках мира
             return;
         }
 
-        // Нанесение удара с учетом кулдауна оружия
         if (target != null) {
             if (client.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 client.interactionManager.attackEntity(client.player, target);
