@@ -21,7 +21,7 @@ public class AuraMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Открытие меню по нажатию Правого Shift (теперь без крашей)
+        // Регистрация клавиши открытия меню (используем Right Shift во избежание конфликтов со стандартным приседанием)
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.aura.menu",
                 InputUtil.Type.KEYSYM,
@@ -30,11 +30,16 @@ public class AuraMod implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null || client.world == null) return;
+            if (client == null || client.player == null || client.world == null) return;
 
-            // Обработка открытия меню
-            while (menuKey.wasPressed()) {
-                client.setScreen(new AuraScreen(null));
+            // Безопасная обработка открытия меню
+            try {
+                while (menuKey.wasPressed()) {
+                    client.setScreen(new AuraScreen(null));
+                }
+            } catch (Exception e) {
+                // Предотвращаем краш игры при сбое GUI
+                e.printStackTrace();
             }
 
             // Работа киллауры, если она включена
@@ -45,26 +50,37 @@ public class AuraMod implements ClientModInitializer {
     }
 
     private void runLegitAura(net.minecraft.client.MinecraftClient client) {
+        if (client.player == null || client.world == null || client.interactionManager == null) return;
+
         Entity target = null;
         double closestDistance = reachDistance;
 
-        for (Entity entity : client.world.getEntities()) {
-            if (entity instanceof LivingEntity && entity != client.player) {
-                if (entity instanceof PlayerEntity && ((PlayerEntity) entity).isCreative()) continue;
-                if (entity.isSpectator()) continue;
+        // Безопасный обход сущностей с проверкой на удаление из мира
+        try {
+            for (Entity entity : client.world.getEntities()) {
+                if (entity == null || entity.isRemoved()) continue;
+                if (entity == client.player) continue;
 
-                double distance = client.player.distanceTo(entity);
-                if (distance <= closestDistance) {
-                    if (isInFov(client.player, entity, fovCheck)) {
-                        closestDistance = distance;
-                        target = entity;
+                if (entity instanceof LivingEntity) {
+                    if (entity instanceof PlayerEntity && ((PlayerEntity) entity).isCreative()) continue;
+                    if (entity.isSpectator()) continue;
+
+                    double distance = client.player.distanceTo(entity);
+                    if (distance <= closestDistance) {
+                        if (isInFov(client.player, entity, fovCheck)) {
+                            closestDistance = distance;
+                            target = entity;
+                        }
                     }
                 }
             }
+        } catch (Exception e) {
+            // Защита от ConcurrentModificationException при тиках мира
+            return;
         }
 
         // Нанесение удара с учетом кулдауна оружия
-        if (target != null && client.interactionManager != null) {
+        if (target != null) {
             if (client.player.getAttackCooldownProgress(0.5f) >= 1.0f) {
                 client.interactionManager.attackEntity(client.player, target);
                 client.player.swingHand(Hand.MAIN_HAND);
@@ -73,6 +89,7 @@ public class AuraMod implements ClientModInitializer {
     }
 
     private boolean isInFov(PlayerEntity player, Entity target, float angle) {
+        if (player == null || target == null) return false;
         double diffX = target.getX() - player.getX();
         double diffZ = target.getZ() - player.getZ();
         double yaw = Math.toDegrees(Math.atan2(diffZ, diffX)) - 90.0D;
